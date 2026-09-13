@@ -1,0 +1,1 @@
+"""Nota backend application package."""
