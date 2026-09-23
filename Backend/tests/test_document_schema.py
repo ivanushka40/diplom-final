@@ -5,8 +5,9 @@ import unittest
 
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
-from fastapi import HTTPException
+from app.services.errors import ServiceError
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import Base
@@ -24,6 +25,24 @@ class AsyncSessionAdapter:
 
     def add(self, value):
         self.session.add(value)
+
+    async def flush(self):
+        self.session.flush()
+
+    async def execute(self, stmt):
+        return self.session.execute(stmt)
+
+    def begin_nested(self):
+        adapter = self
+        class Nested:
+            async def __aenter__(self):
+                self.transaction = adapter.session.begin_nested()
+                self.transaction.__enter__()
+                return self
+
+            async def __aexit__(self, *args):
+                return self.transaction.__exit__(*args)
+        return Nested()
 
     async def commit(self):
         self.session.commit()
@@ -68,7 +87,16 @@ class DocumentSchemaTests(unittest.TestCase):
                 (10, "Parent", "Existing text", 1), (20, "Child", "", 1),
                 (21, "Library", "Description", 1), (22, "Empty", "", 1),
             ])
-            self.assertEqual(connection.execute(text("SELECT * FROM document_members")).all(), [(10, 2)])
+            self.assertEqual(connection.execute(text("SELECT document_id, user_id FROM document_members")).all(), [(10, 2)])
+            self.assertEqual(inspect(connection).get_pk_constraint("document_members")["constrained_columns"], ["id"])
+            member_id = connection.execute(text("SELECT id FROM document_members")).scalar()
+            self.assertGreater(member_id, 0)
+            with self.assertRaises(IntegrityError):
+                connection.execute(text("INSERT INTO document_members (document_id, user_id) VALUES (10, 2)"))
+            # The last migration is reversible without losing membership associations.
+            module.downgrade()
+            module.upgrade()
+            self.assertEqual(connection.execute(text("SELECT document_id, user_id FROM document_members")).all(), [(10, 2)])
             connection.execute(text("INSERT INTO documents (title, owner_id) VALUES ('New', 1)"))
             self.assertEqual(connection.execute(text("SELECT MAX(id) FROM documents")).scalar(), 23)
             connection.execute(text("DELETE FROM documents WHERE id = 10"))
@@ -89,20 +117,20 @@ class DocumentSchemaTests(unittest.TestCase):
                 doc = await create_document(DocumentCreate(title="Shared"), owner, session)
                 private = await create_document(DocumentCreate(title="Private"), owner, session)
                 async def denied(awaitable, status):
-                    with self.assertRaises(HTTPException) as caught:
+                    with self.assertRaises(ServiceError) as caught:
                         await awaitable
                     self.assertEqual(caught.exception.status_code, status)
-                await denied(get_content(doc["id"], editor, session), 404)
+                await denied(get_content(doc.id, editor, session), 404)
                 self.assertEqual(await list_documents(editor, session), [])
                 for _ in range(2):
-                    await add_member(doc["id"], MemberCreate(username="EDITOR"), owner, session)
-                self.assertEqual(len(await list_members(doc["id"], owner, session)), 2)
-                self.assertEqual(await list_documents(editor, session), [dict(doc, is_owner=False)])
-                await update_content(doc["id"], ContentUpdate(markdown_text="Updated"), editor, session)
-                self.assertEqual((await get_content(doc["id"], owner, session))["markdown_text"], "Updated")
-                await denied(get_content(private["id"], editor, session), 404)
-                await denied(update_content(private["id"], ContentUpdate(markdown_text="Denied"), editor, session), 404)
-                await denied(add_member(doc["id"], MemberCreate(username="outsider"), editor, session), 403)
-                await denied(list_members(doc["id"], outsider, session), 404)
+                    await add_member(doc.id, MemberCreate(username="EDITOR"), owner, session)
+                self.assertEqual(len(await list_members(doc.id, owner, session)), 2)
+                self.assertEqual(await list_documents(editor, session), [doc.model_copy(update={"is_owner": False})])
+                await update_content(doc.id, ContentUpdate(markdown_text="Updated"), editor, session)
+                self.assertEqual((await get_content(doc.id, owner, session)).markdown_text, "Updated")
+                await denied(get_content(private.id, editor, session), 404)
+                await denied(update_content(private.id, ContentUpdate(markdown_text="Denied"), editor, session), 404)
+                await denied(add_member(doc.id, MemberCreate(username="outsider"), editor, session), 403)
+                await denied(list_members(doc.id, outsider, session), 404)
             engine.dispose()
         asyncio.run(run())

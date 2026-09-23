@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, Text
+from sqlalchemy import ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -32,10 +32,12 @@ class Document(Base):
 
 class DocumentMember(Base):
     __tablename__ = "document_members"
+    __table_args__ = (UniqueConstraint("document_id", "user_id", name="uq_document_members_document_user"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
     document_id: Mapped[int] = mapped_column(
-        ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("documents.id", ondelete="CASCADE")
     )
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     document: Mapped[Document] = relationship(back_populates="members")

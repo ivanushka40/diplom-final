@@ -1,25 +1,23 @@
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing import Literal
+
+from pydantic import Field, PositiveInt
+
+from app.schemas.common import RequestSchema, ResponseSchema, Username
 
 
-class Credentials(BaseModel):
-    username: str = Field(min_length=3, max_length=50, pattern=r"^[A-Za-z0-9_.-]+$")
+class Credentials(RequestSchema):
+    username: Username
     password: str = Field(min_length=8, max_length=128)
 
-    @field_validator("username")
-    @classmethod
-    def normalize_username(cls, value: str) -> str:
-        return value.strip().lower()
 
-
-class UserRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
+class UserRead(ResponseSchema):
+    id: PositiveInt
     username: str
 
 
-class Token(BaseModel):
+class Token(ResponseSchema):
     access_token: str
-    token_type: str = "bearer"
+    token_type: Literal["bearer"] = "bearer"
 
 
 class AuthResponse(Token):
