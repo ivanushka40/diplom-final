@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from sqlalchemy import ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,43 +11,31 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(unique=True, index=True)
     hashed_password: Mapped[str]
-    books: Mapped[list[Book]] = relationship(back_populates="owner", cascade="all, delete-orphan")
+    documents: Mapped[list[Document]] = relationship(
+        back_populates="owner", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
-class Book(Base):
-    __tablename__ = "books"
+class Document(Base):
+    __tablename__ = "documents"
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(index=True)
-    description: Mapped[Optional[str]]
-    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    owner: Mapped[User] = relationship(back_populates="books")
-    chapters: Mapped[list[Chapter]] = relationship(
-        back_populates="book", cascade="all, delete-orphan", order_by="Chapter.order_num"
+    markdown_text: Mapped[str] = mapped_column(Text, default="", server_default="")
+    owner_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
-
-
-class Chapter(Base):
-    __tablename__ = "chapters"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    title: Mapped[str]
-    book_id: Mapped[int] = mapped_column(ForeignKey("books.id", ondelete="CASCADE"))
-    parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("chapters.id", ondelete="CASCADE"))
-    order_num: Mapped[int] = mapped_column(default=0)
-    book: Mapped[Book] = relationship(back_populates="chapters")
-    content: Mapped[Optional[ContentBlock]] = relationship(
-        back_populates="chapter", cascade="all, delete-orphan", uselist=False
+    owner: Mapped[User] = relationship(back_populates="documents")
+    members: Mapped[list[DocumentMember]] = relationship(
+        back_populates="document", cascade="all, delete-orphan", passive_deletes=True
     )
-
-
-class ContentBlock(Base):
-    __tablename__ = "content_blocks"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    chapter_id: Mapped[int] = mapped_column(ForeignKey("chapters.id", ondelete="CASCADE"), unique=True)
-    markdown_text: Mapped[str] = mapped_column(Text)
-    chapter: Mapped[Chapter] = relationship(back_populates="content")
 
 
 class DocumentMember(Base):
     __tablename__ = "document_members"
-    chapter_id: Mapped[int] = mapped_column(ForeignKey("chapters.id", ondelete="CASCADE"), primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    document: Mapped[Document] = relationship(back_populates="members")

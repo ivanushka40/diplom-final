@@ -30,7 +30,7 @@ async def test_document_sharing_and_isolation():
         assert response.status_code == 201
         doc = response.json()["id"]
         other = (await client.post("/documents/", headers=owner, json={"title": "Private"})).json()["id"]
-        path = f"/chapters/{doc}/content"
+        path = f"/documents/{doc}/content"
         assert (await client.get(path, headers=editor)).status_code == 404
         assert (await client.put(path, headers=editor, json={"markdown_text": "Denied"})).status_code == 404
         assert (await client.get("/documents/", headers=editor)).json() == []
@@ -43,7 +43,7 @@ async def test_document_sharing_and_isolation():
         assert (await client.get("/documents/", headers=editor)).json() == [{"id": doc, "title": "Shared", "is_owner": False}]
         assert (await client.put(path, headers=editor, json={"markdown_text": "Updated"})).status_code == 200
         assert (await client.get(path, headers=owner)).json()["markdown_text"] == "Updated"
-        assert (await client.get(f"/chapters/{other}/content", headers=editor)).status_code == 404
+        assert (await client.get(f"/documents/{other}/content", headers=editor)).status_code == 404
         assert (await client.post(members, headers=editor, json={"username": "outsider"})).status_code == 403
         assert (await client.get(members, headers=outsider)).status_code == 404
         assert (await client.get("/documents/")).status_code == 401

@@ -66,14 +66,14 @@ function App() {
   }, [token])
   const saveCurrent = async () => {
     if (!active || saved) return
-    await request(`/chapters/${active.id}/content`, { method: 'PUT', body: JSON.stringify({ markdown_text: content }) })
+    await request(`/documents/${active.id}/content`, { method: 'PUT', body: JSON.stringify({ markdown_text: content }) })
     setSaved(true); setNotice('Документ сохранён')
   }
   const save = async () => { setBusy(true); try { await saveCurrent() } catch (e) { setNotice(e.message) } finally { setBusy(false) } }
   const select = async doc => {
     if (busy || active?.id === doc.id) return
     setBusy(true)
-    try { await saveCurrent(); const data = await request(`/chapters/${doc.id}/content`); setActive(doc); setContent(data.markdown_text || ''); setSaved(true); setNotice('') }
+    try { await saveCurrent(); const data = await request(`/documents/${doc.id}/content`); setActive(doc); setContent(data.markdown_text || ''); setSaved(true); setNotice('') }
     catch (e) { setNotice(e.message) } finally { setBusy(false) }
   }
   const createPage = async () => {

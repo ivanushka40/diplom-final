@@ -18,7 +18,7 @@ services:
 
   migrations:
     build: ./Backend
-    command: uv run alembic upgrade head
+    command: uv run --no-sync alembic upgrade head
     environment: &backend-environment
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-nota}
       SECRET_KEY: ${SECRET_KEY:-development-secret-change-me}
@@ -38,7 +38,7 @@ services:
       migrations:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "uv", "run", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "uv", "run", "--no-sync", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
       timeout: 5s
       retries: 5
