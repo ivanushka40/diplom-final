@@ -47,3 +47,9 @@ class ContentBlock(Base):
     chapter_id: Mapped[int] = mapped_column(ForeignKey("chapters.id", ondelete="CASCADE"), unique=True)
     markdown_text: Mapped[str] = mapped_column(Text)
     chapter: Mapped[Chapter] = relationship(back_populates="content")
+
+
+class DocumentMember(Base):
+    __tablename__ = "document_members"
+    chapter_id: Mapped[int] = mapped_column(ForeignKey("chapters.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)

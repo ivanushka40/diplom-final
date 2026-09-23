@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routes import auth, books, chapters, health
+from app.routes import auth, books, chapters, documents, health
 
 
 def create_app() -> FastAPI:
@@ -18,6 +18,7 @@ def create_app() -> FastAPI:
     application.include_router(auth.router)
     application.include_router(books.router)
     application.include_router(chapters.router)
+    application.include_router(documents.router)
     return application
 
 
